@@ -1,2 +1,3 @@
-# ml_2017_18
+# Machine Learning Tutorials - Seminar MS / HU Berlin 2017/18
+
 Machine learning tutorials
