@@ -3,6 +3,7 @@ import random
 
 import math
 import numpy as np
+import matplotlib.pyplot as plt
 import itertools
 
 
@@ -26,19 +27,46 @@ class Point:
         self.centroid = centroid
 
 
-def read_dataset() -> List[Point]:
+class Summary:
+    def __init__(self, k: int, wss: float, points: List[Point], centroids: List[Centroid]):
+        self.k = k
+        self.wss = wss
+        self.points = points
+        self.centroids = centroids
+
+
+def get_min_max_x_y(points: List[Point]) -> (float, float, float, float):
+    min_x = 0.0
+    max_x = 0.0
+    min_y = 0.0
+    max_y = 0.0
+    for point in points:
+        if min_x > point.x or min_x == 0:
+            min_x = point.x
+        if max_x < point.x or max_x == 0:
+            max_x = point.x
+        if min_y > point.y or min_y == 0:
+            min_y = point.y
+        if max_y < point.y or max_y == 0:
+            max_y = point.y
+    return min_x, max_x, min_y, max_y
+
+
+def read_dataset() -> (List[Point], float, float, float, float):
     points: List[Point] = []
     path = "./data/dataset"
     with open(path, "r", encoding='latin-1') as f:
         for line in f.readlines():
             entry = line.split()
             points.append(Point(float(entry[1]) / 10, float(entry[2]) / 100))
-    return points
+    min_x, max_x, min_y, max_y = get_min_max_x_y(points)
+    return points, min_x, max_x, min_y, max_y
 
 
 # place cluster centers ck randomly for all k = 1, ... ,K
-def init_cluster_centroids(num_clusters) -> List[Centroid]:
-    centroids = [Centroid(random.uniform(0, 1), random.uniform(0, 1)) for _ in itertools.repeat(None, num_clusters)]
+def init_cluster_centroids(num_clusters, min_x: float, max_x: float, min_y: float, max_y: float) -> List[Centroid]:
+    centroids = [Centroid(random.uniform(min_x, max_x), random.uniform(min_y, max_y))
+                 for _ in itertools.repeat(None, num_clusters)]
     return centroids
 
 
@@ -99,9 +127,9 @@ def recompute_centroids(points: List[Point], centroids: List[Centroid]):
             centroid.change_centroid(x, y)
 
 
-def init_clusters() -> (List[Point], List[Centroid]):
-    points = read_dataset()
-    centroids = init_cluster_centroids(6)
+def init_clusters(k: int) -> (List[Point], List[Centroid]):
+    points, min_x, max_x, min_y, max_y = read_dataset()
+    centroids = init_cluster_centroids(k, min_x, max_x, min_y, max_y)
     initial_assign_points_to_clusters(points, centroids)
     return points, centroids
 
@@ -109,17 +137,74 @@ def init_clusters() -> (List[Point], List[Centroid]):
 # reiterate until there are no changes in assignments
 def fit_clusters(points: List[Point], centroids: List[Centroid]) -> (List[Point], List[Centroid]):
     changes = True
+    max_rounds = 20
     i = 0
     while changes:
         recompute_centroids(points, centroids)
         changes = assign_points_to_clusters(points, centroids)
         i += 1
-        print(i)
+        if i >= max_rounds:
+            changes = False
+    print("Needed {} round/s to fit cluster/s".format(i))
     return points, centroids
 
 
-points, centroids = init_clusters()
-print("--- Clusters initialized ---")
-fit_clusters(points, centroids)
-print("--- Clusters fitted ---")
-# plot_clusters()
+def wss_of_a_clusters(points: List[Point], centroid: Centroid) -> float:
+    wss_k: float = 0.0
+    for point in points:
+        wss_i = get_distance(point, centroid)
+        wss_k += wss_i
+    return wss_k
+
+
+def calc_wss_in_clusters(points: List[Point], centroids: List[Centroid]) -> float:
+    wss: float = 0
+    for centroid in centroids:
+        cluster_points = []
+        for p in points:
+            if p.centroid == centroid:
+                cluster_points.append(p)
+        wss_k = wss_of_a_clusters(cluster_points, centroid)
+        wss += wss_k
+    return wss
+
+
+def eval_k(k: int) -> (float, List[Point], List[Centroid]):
+    print("------------ Clusters k: {} ------------".format(k))
+    points, centroids = init_clusters(k)
+    print("--- Clusters initialized ---")
+    fit_clusters(points, centroids)
+    print("--- Clusters fitted ---")
+    wss = calc_wss_in_clusters(points, centroids)
+    return wss, points, centroids
+
+
+# Determine the best K by computing within-cluster sum of squares
+def find_best_k() -> (int, float, List[Point], List[Centroid]):
+    k_r = range(1, 10)
+    summaries: List[Summary] = []
+    for k in k_r:
+        wss, points, centroids = eval_k(k)
+        summaries.append(Summary(k, wss, points, centroids))
+    return summaries
+
+
+def plot_clusters(summaries: List[Summary]):
+    k = []
+    wss = []
+    for sum in summaries:
+        k.append(sum.k)
+        wss.append(sum.wss)
+
+    plt.plot(k, wss, 'bx-')
+    plt.xlabel('k')
+    plt.ylabel('WSS')
+    plt.title('Determine the optimal k with the elbow method')
+    plt.show()
+
+
+# find best k
+summaries: List[Summary] = find_best_k()
+
+# plot results
+plot_clusters(summaries)
