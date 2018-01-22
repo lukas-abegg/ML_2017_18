@@ -21,7 +21,7 @@ class Point:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.centroid: Centroid = None
+        self.centroid = None
 
     def assign_centroid(self, centroid: Centroid):
         self.centroid = centroid
@@ -53,7 +53,7 @@ def get_min_max_x_y(points: List[Point]) -> (float, float, float, float):
 
 
 def read_dataset() -> (List[Point], float, float, float, float):
-    points: List[Point] = []
+    points = []
     path = "./data/dataset"
     with open(path, "r", encoding='latin-1') as f:
         for line in f.readlines():
@@ -92,6 +92,24 @@ def initial_assign_points_to_clusters(points: List[Point], centroids: List[Centr
         p.assign_centroid(find_smallest_distance_to_centroid(p, centroids))
 
 
+# assign data point xi to nearest cluster center
+def assign_points_to_clusters(points: List[Point], centroids: List[Centroid]):
+    changes = False
+    for p in points:
+        nearest_centroid = find_smallest_distance_to_centroid(p, centroids)
+        if p.centroid != nearest_centroid:
+            changes = True
+            p.assign_centroid(nearest_centroid)
+    return changes
+
+
+def init_clusters(k: int) -> (List[Point], List[Centroid]):
+    points, min_x, max_x, min_y, max_y = read_dataset()
+    centroids = init_cluster_centroids(k, min_x, max_x, min_y, max_y)
+    initial_assign_points_to_clusters(points, centroids)
+    return points, centroids
+
+
 def find_new_centroid(points: List[Point]) -> (int, int):
     list_x = []
     list_y = []
@@ -104,17 +122,6 @@ def find_new_centroid(points: List[Point]) -> (int, int):
     return centroid_x, centroid_y
 
 
-# assign data point xi to nearest cluster center
-def assign_points_to_clusters(points: List[Point], centroids: List[Centroid]):
-    changes = False
-    for p in points:
-        nearest_centroid = find_smallest_distance_to_centroid(p, centroids)
-        if p.centroid != nearest_centroid:
-            changes = True
-            p.assign_centroid(nearest_centroid)
-    return changes
-
-
 # recompute cluster centers
 def recompute_centroids(points: List[Point], centroids: List[Centroid]):
     for centroid in centroids:
@@ -125,13 +132,6 @@ def recompute_centroids(points: List[Point], centroids: List[Centroid]):
         if len(cluster_points) > 0:
             x, y = find_new_centroid(cluster_points)
             centroid.change_centroid(x, y)
-
-
-def init_clusters(k: int) -> (List[Point], List[Centroid]):
-    points, min_x, max_x, min_y, max_y = read_dataset()
-    centroids = init_cluster_centroids(k, min_x, max_x, min_y, max_y)
-    initial_assign_points_to_clusters(points, centroids)
-    return points, centroids
 
 
 # reiterate until there are no changes in assignments
@@ -150,7 +150,7 @@ def fit_clusters(points: List[Point], centroids: List[Centroid]) -> (List[Point]
 
 
 def wss_of_a_clusters(points: List[Point], centroid: Centroid) -> float:
-    wss_k: float = 0.0
+    wss_k = 0.0
     for point in points:
         wss_i = get_distance(point, centroid)
         wss_k += wss_i
@@ -158,7 +158,7 @@ def wss_of_a_clusters(points: List[Point], centroid: Centroid) -> float:
 
 
 def calc_wss_in_clusters(points: List[Point], centroids: List[Centroid]) -> float:
-    wss: float = 0
+    wss = 0.0
     for centroid in centroids:
         cluster_points = []
         for p in points:
@@ -182,7 +182,7 @@ def eval_k(k: int) -> (float, List[Point], List[Centroid]):
 # Determine the best K by computing within-cluster sum of squares
 def find_best_k() -> (int, float, List[Point], List[Centroid]):
     k_r = range(1, 10)
-    summaries: List[Summary] = []
+    summaries = []
     for k in k_r:
         wss, points, centroids = eval_k(k)
         summaries.append(Summary(k, wss, points, centroids))
@@ -204,7 +204,7 @@ def plot_clusters(summaries: List[Summary]):
 
 
 # find best k
-summaries: List[Summary] = find_best_k()
+summaries = find_best_k()
 
 # plot results
 plot_clusters(summaries)
